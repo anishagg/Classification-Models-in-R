@@ -41,7 +41,7 @@ tr = sample(1:395,320)
 
 ##################   EDA    ##################################
 
-student_mat  = read.csv("Desktop/student-mat.csv",header=TRUE)
+student_mat  = read.csv("../data/student-mat.csv",header=TRUE)
 attach(student_mat)
 Final = (student_mat$G3)
 boxplot(Final ~studytime, data = student_mat,xlab= 'Study Time',ylab = "Grade",col='orange',lncol='blue')
@@ -55,48 +55,22 @@ boxplot(Final ~absences, data = student_mat,xlab= 'Absences',ylab = "Grade",col=
 hist(Final, col='lightsalmon',xlab='Grades',ylab='Students',main= 'Total Grade Distribution')
 
 
+#checking relation between mothers and fathers education
+M <- factor(c(Medu))
+levels(M)
 
-# test data
-final <- factor(c(Medu))
-levels(final)
-
-test <- factor(c(Fedu))
-levels(test)    
+F <- factor(c(Fedu))
+levels(F)    
 ## [1] "Cancer"
 
 # gives expected error
-model <- confusionMatrix(final, test)
+model <- confusionMatrix(M, F)
 #plot(model$table)
 model
 model$table
 
 myTable <- model$table
-plot(myTable)
-
-#plot(myTable,col= '2',xlab='Pstatus',ylab='famsup')
 mosaicplot(myTable,shade = T,xlab="Mother Education",ylab='Father Education',direction = 'v',main ='')
-
-
-# test data
-final <- factor(c(schoolsup))
-levels(final)
-## [1] "Cancer" "Normal"
-
-test <- factor(c(romantic))
-levels(test)    
-## [1] "Cancer"
-
-# gives expected error
-model <- confusionMatrix(final, test)
-#plot(model$table)
-model
-model$table
-
-myTable <- model$table
-plot(myTable)
-
-fourfoldplot(model$table)
-
 
 
 ###########                Interaction of Variables                 ###########
@@ -108,10 +82,7 @@ XXca = NULL
 
 set.seed(100)
 XXca <- model.matrix(Gnew~.*schoolsup, data=data.frame(scale(dat)))[,c(-1,-31)]
-#xtab<-table(sm.d$age,sm.d$Gnew)
-#confusionMatrix(xtab)
 
-#what is this:
 STUdata = data.frame(Gnew,XXca)
 STU_pred = as.data.frame(STUdata)
 
@@ -126,14 +97,10 @@ predicted_IntVar <- predict(regBoth,STU_pred[-tr,],type='response')
 predicted_IntVar <- ifelse(predicted_IntVar > 0.5,1,0)
 misClasificError <- mean(predicted_IntVar != Gnew[-tr])
 
-#MCR <- 1-sum(diag(kknn_pred))/sum(kknn_pred)
-
-print(paste('Accuracy',1-misClasificError)) #38%
+print(paste('Accuracy',1-misClasificError)) #64%
 cm <- confusionMatrix(data=as.factor(predicted_IntVar), reference=as.factor(Gnew[-tr]))
 print(paste('fpr',cm$table[2]/(nrow(sm.d[-tr,])))) #0.30
 print(paste('fnr',cm$table[3]/(nrow(sm.d[-tr,])))) #0.05
-
-
 
 
 ########                   LOGISTIC REGRESSION                      #########
@@ -257,10 +224,6 @@ hist(fnr,xlab='% of fnr',ylab='Freq',main='FNR',
      col='cyan',border='blue',density=30)
 
 
-
-
-
-
 ##############Random Forest################
 
 #number of trees plot, boostrap data with replacement 
@@ -276,7 +239,6 @@ print(rf)
 attributes(rf)
 
 # Prediction & Confusion Matrix - train data
-library(caret)
 p1 <- predict(rf, train)
 confusionMatrix(p1, train$Gnew)
 
@@ -345,7 +307,6 @@ for(j in 1:kcv){
     
     
     kknn_pred <- table(kknn_mod$fitted, test_i$Gnew)
-    #kknn_mod$fitted <- ifelse(kknn_mod$fitted >0.7, 1, 0)   ##########TAKE NOTE OF THIS
     pred11 <- predict(kknn_mod, test_i, type = 'prob')[,-1]
     pred11<- ifelse(pred11 >0.7, 1, 0)
     
@@ -405,36 +366,3 @@ plot.roc(test$Gnew, add = T, pred4, col = "orange", lwd = 3, print.auc = TRUE, p
 
 abline(1, -1, col= "black", lwd = 4)
 legend("topleft", legend = c("Logistic Regression","Lasso", "KNN", "Random Forest") , pch = 15, bty = 'n', col = c("red","orange", "green", "blue"))
-
-
-
-
-
-
-#Reading the survey responses and changing the variables class appropriately
-sm.d1 = read.csv("/Users/alysonbrown/Desktop/Survey Responses.csv",header=TRUE)
-sm.d1[c("Fedu")] <- lapply(sm.d1[c("Fedu")], as.factor)
-sm.d1$Gnew <- NA
-sm.d1[c("Gnew")] <- lapply(sm.d1[c("Gnew")], as.factor)
-
-#subsetting training data only for the important variables collected in the survey
-train1 <- train[,c("age","sex","failures","schoolsup","famsup", "Mjob","Fedu","nursery","Walc","higher","absences","address","Gnew")]
-
-#combining training and test and then detaching again - because random forest prediction won't work otherwise
-new_data = rbind(train1,sm.d1)
-train_survey = new_data[(1:320),]
-test_survey = new_data[(321:nrow(new_data)),]
-
-#training the model on subsetted data
-set.seed(123)
-rf3 <- randomForest(Gnew~failures + absences + Fedu + Mjob +schoolsup + sex+ age+famsup+nursery+Walc+higher+address,
-                    data=train_survey,
-                    ntree = 500,
-                    mtry = 10,#select 10 variables at a time
-                    importance = TRUE,
-                    proximity = TRUE)
-
-#predicting on survey results
-p23 <- predict(rf3, test_survey)
-p23
-
